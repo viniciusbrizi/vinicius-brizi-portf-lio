@@ -91,14 +91,15 @@ const HeroSection = () => {
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
       {/* Background floating elements */}
+{/* Floating gradient orbs that react to mouse */}
       <div ref={floatingRef} className="absolute inset-0 pointer-events-none">
-        <div className="floating-element absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-        <div className="floating-element absolute bottom-1/3 right-1/4 w-96 h-96 bg-glow-secondary/10 rounded-full blur-3xl" />
-        <div className="floating-element absolute top-1/2 right-1/3 w-48 h-48 bg-primary/5 rounded-full blur-2xl" />
+        <div className="floating-element absolute top-1/4 left-1/4 w-72 h-72 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-3xl" />
+        <div className="floating-element absolute bottom-1/3 right-1/4 w-96 h-96 bg-gradient-to-tl from-glow-secondary/15 to-transparent rounded-full blur-3xl" />
+        <div className="floating-element absolute top-1/2 right-1/3 w-56 h-56 bg-gradient-to-br from-primary/10 to-glow-secondary/10 rounded-full blur-2xl" />
       </div>
 
-      {/* Grid overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--border)/0.3)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/0.3)_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,black_40%,transparent_100%)]" />
+      {/* Subtle grid overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--border)/0.15)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/0.15)_1px,transparent_1px)] bg-[size:80px_80px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,black_30%,transparent_100%)]" />
 
       <div className="section-container relative z-10 text-center">
         <div className="max-w-4xl mx-auto">

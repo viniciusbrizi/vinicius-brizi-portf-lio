@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
 /* Design System - Vinicius Brizi Portfolio */
 
@@ -44,7 +44,7 @@
     --gradient-start: 192 100% 50%;
     --gradient-end: 280 100% 60%;
     
-    --font-display: 'Space Grotesk', sans-serif;
+    --font-display: 'Poppins', sans-serif;
   }
 
   .dark {

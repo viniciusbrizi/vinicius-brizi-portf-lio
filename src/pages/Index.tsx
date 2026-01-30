@@ -5,10 +5,15 @@ import PortfolioSection from '@/components/PortfolioSection';
 import ContactSection from '@/components/ContactSection';
 import CTASection from '@/components/CTASection';
 import Footer from '@/components/Footer';
+import InteractiveBackground from '@/components/InteractiveBackground';
+import WhatsAppButton from '@/components/WhatsAppButton';
 
 const Index = () => {
   return (
     <div className="relative min-h-screen">
+      {/* Interactive particle background */}
+      <InteractiveBackground />
+      
       {/* Grain overlay */}
       <div className="grain-overlay" />
       
@@ -26,6 +31,9 @@ const Index = () => {
 
       {/* Footer */}
       <Footer />
+      
+      {/* WhatsApp floating button */}
+      <WhatsAppButton />
     </div>
   );
 };

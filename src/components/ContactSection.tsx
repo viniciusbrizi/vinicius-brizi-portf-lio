@@ -1,34 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Send, User, Mail, MessageSquare, Building2, Code2, Briefcase } from 'lucide-react';
+import { Send, User, Mail, MessageSquare, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const clientSchema = z.object({
+const contactSchema = z.object({
   name: z.string().trim().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
   email: z.string().trim().email('Email inválido').max(255),
-  company: z.string().trim().max(100).optional(),
-  project: z.string().trim().min(10, 'Descreva seu projeto com mais detalhes').max(1000),
-});
-
-const devSchema = z.object({
-  name: z.string().trim().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
-  email: z.string().trim().email('Email inválido').max(255),
-  github: z.string().trim().max(100).optional(),
   message: z.string().trim().min(10, 'Mensagem deve ter pelo menos 10 caracteres').max(1000),
 });
 
-type FormType = 'client' | 'dev';
+type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 const ContactSection = () => {
   const sectionRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
-  const [activeForm, setActiveForm] = useState<FormType>('client');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [formStatus, setFormStatus] = useState<FormStatus>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -55,32 +48,68 @@ const ContactSection = () => {
         duration: 0.8,
         ease: 'power3.out',
       });
+
+      // Animate form fields on focus
+      const inputs = document.querySelectorAll('.form-input');
+      inputs.forEach((input) => {
+        input.addEventListener('focus', () => {
+          gsap.to(input, { scale: 1.02, duration: 0.2, ease: 'power2.out' });
+        });
+        input.addEventListener('blur', () => {
+          gsap.to(input, { scale: 1, duration: 0.2, ease: 'power2.out' });
+        });
+      });
     }, sectionRef);
 
     return () => ctx.revert();
   }, []);
 
+  const openWhatsApp = (name: string, message: string) => {
+    const phoneNumber = '5515997631368';
+    const whatsappMessage = `Nova mensagem do portfólio!\n\nNome: ${name}\n\nMensagem: ${message}`;
+    const encodedMessage = encodeURIComponent(whatsappMessage);
+    // Open WhatsApp in a new tab (won't interrupt user)
+    window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank', 'noopener,noreferrer');
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrors({});
-    setIsSubmitting(true);
+    setErrorMessage('');
+    setFormStatus('submitting');
 
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
+    const data = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      message: formData.get('message') as string,
+    };
 
     try {
-      if (activeForm === 'client') {
-        clientSchema.parse(data);
-      } else {
-        devSchema.parse(data);
+      // Validate data
+      const validatedData = contactSchema.parse(data);
+
+      // Send email via edge function
+      const { data: response, error } = await supabase.functions.invoke('send-contact-email', {
+        body: validatedData,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao enviar mensagem');
       }
 
-      // Simulate submission
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setSubmitSuccess(true);
-      (e.target as HTMLFormElement).reset();
+      if (!response?.success) {
+        throw new Error(response?.error || 'Erro ao enviar mensagem');
+      }
+
+      // Success - trigger WhatsApp notification
+      openWhatsApp(validatedData.name, validatedData.message);
+
+      setFormStatus('success');
+      formRef.current?.reset();
       
-      setTimeout(() => setSubmitSuccess(false), 5000);
+      // Reset form status after 5 seconds
+      setTimeout(() => setFormStatus('idle'), 5000);
     } catch (err) {
       if (err instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
@@ -90,9 +119,12 @@ const ContactSection = () => {
           }
         });
         setErrors(fieldErrors);
+        setFormStatus('idle');
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : 'Erro ao enviar mensagem');
+        setFormStatus('error');
+        setTimeout(() => setFormStatus('idle'), 5000);
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -111,163 +143,106 @@ const ContactSection = () => {
             Vamos <span className="gradient-text">conversar</span>?
           </h2>
           <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-            Seja para um projeto, oportunidade ou apenas trocar ideias sobre desenvolvimento.
+            Interessado em trabalhar juntos? Envie uma mensagem e entrarei em contato em breve.
           </p>
         </div>
 
-        {/* Form selector tabs */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex glass rounded-full p-1">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveForm('client');
-                setErrors({});
-              }}
-              className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
-                activeForm === 'client'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Briefcase className="w-4 h-4" />
-              Para Clientes
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveForm('dev');
-                setErrors({});
-              }}
-              className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
-                activeForm === 'dev'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Code2 className="w-4 h-4" />
-              Para Devs
-            </button>
-          </div>
-        </div>
-
         {/* Contact form */}
-        <div className="max-w-2xl mx-auto">
-          <form onSubmit={handleSubmit} className="contact-form space-y-6">
+        <div className="max-w-xl mx-auto">
+          <form ref={formRef} onSubmit={handleSubmit} className="contact-form space-y-6">
             {/* Success message */}
-            {submitSuccess && (
-              <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-center">
-                Mensagem enviada com sucesso! Entrarei em contato em breve.
+            {formStatus === 'success' && (
+              <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 animate-fade-in">
+                <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                <span>Mensagem enviada com sucesso! Entrarei em contato em breve.</span>
+              </div>
+            )}
+
+            {/* Error message */}
+            {formStatus === 'error' && (
+              <div className="flex items-center gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive animate-fade-in">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span>{errorMessage || 'Ocorreu um erro. Tente novamente.'}</span>
               </div>
             )}
 
             {/* Name field */}
-            <div>
-              <label htmlFor="name" className="flex items-center gap-2 text-sm font-medium mb-2">
-                <User className="w-4 h-4 text-primary" />
+            <div className="group">
+              <label htmlFor="name" className="flex items-center gap-2 text-sm font-medium mb-2 text-foreground/80 group-focus-within:text-primary transition-colors">
+                <User className="w-4 h-4" />
                 Nome
               </label>
               <input
                 type="text"
                 id="name"
                 name="name"
-                className={`form-input ${errors.name ? 'border-destructive' : ''}`}
-                placeholder="Seu nome"
+                className={`form-input ${errors.name ? 'border-destructive focus:ring-destructive/50' : ''}`}
+                placeholder="Seu nome completo"
+                disabled={formStatus === 'submitting'}
               />
-              {errors.name && <p className="text-destructive text-xs mt-1">{errors.name}</p>}
+              {errors.name && (
+                <p className="text-destructive text-xs mt-1 animate-fade-in">{errors.name}</p>
+              )}
             </div>
 
             {/* Email field */}
-            <div>
-              <label htmlFor="email" className="flex items-center gap-2 text-sm font-medium mb-2">
-                <Mail className="w-4 h-4 text-primary" />
+            <div className="group">
+              <label htmlFor="email" className="flex items-center gap-2 text-sm font-medium mb-2 text-foreground/80 group-focus-within:text-primary transition-colors">
+                <Mail className="w-4 h-4" />
                 Email
               </label>
               <input
                 type="email"
                 id="email"
                 name="email"
-                className={`form-input ${errors.email ? 'border-destructive' : ''}`}
+                className={`form-input ${errors.email ? 'border-destructive focus:ring-destructive/50' : ''}`}
                 placeholder="seu@email.com"
+                disabled={formStatus === 'submitting'}
               />
-              {errors.email && <p className="text-destructive text-xs mt-1">{errors.email}</p>}
+              {errors.email && (
+                <p className="text-destructive text-xs mt-1 animate-fade-in">{errors.email}</p>
+              )}
             </div>
 
-            {/* Conditional field based on form type */}
-            {activeForm === 'client' ? (
-              <div>
-                <label htmlFor="company" className="flex items-center gap-2 text-sm font-medium mb-2">
-                  <Building2 className="w-4 h-4 text-primary" />
-                  Empresa <span className="text-muted-foreground">(opcional)</span>
-                </label>
-                <input
-                  type="text"
-                  id="company"
-                  name="company"
-                  className="form-input"
-                  placeholder="Nome da empresa"
-                />
-              </div>
-            ) : (
-              <div>
-                <label htmlFor="github" className="flex items-center gap-2 text-sm font-medium mb-2">
-                  <Code2 className="w-4 h-4 text-primary" />
-                  GitHub <span className="text-muted-foreground">(opcional)</span>
-                </label>
-                <input
-                  type="text"
-                  id="github"
-                  name="github"
-                  className="form-input"
-                  placeholder="github.com/username"
-                />
-              </div>
-            )}
-
             {/* Message field */}
-            <div>
-              <label
-                htmlFor={activeForm === 'client' ? 'project' : 'message'}
-                className="flex items-center gap-2 text-sm font-medium mb-2"
-              >
-                <MessageSquare className="w-4 h-4 text-primary" />
-                {activeForm === 'client' ? 'Sobre o projeto' : 'Mensagem'}
+            <div className="group">
+              <label htmlFor="message" className="flex items-center gap-2 text-sm font-medium mb-2 text-foreground/80 group-focus-within:text-primary transition-colors">
+                <MessageSquare className="w-4 h-4" />
+                Mensagem
               </label>
               <textarea
-                id={activeForm === 'client' ? 'project' : 'message'}
-                name={activeForm === 'client' ? 'project' : 'message'}
+                id="message"
+                name="message"
                 rows={5}
-                className={`form-input resize-none ${
-                  errors.project || errors.message ? 'border-destructive' : ''
-                }`}
-                placeholder={
-                  activeForm === 'client'
-                    ? 'Conte-me sobre seu projeto, objetivos e prazo...'
-                    : 'Escreva sua mensagem, ideia de colaboração...'
-                }
+                className={`form-input resize-none ${errors.message ? 'border-destructive focus:ring-destructive/50' : ''}`}
+                placeholder="Conte-me sobre seu projeto ou oportunidade..."
+                disabled={formStatus === 'submitting'}
               />
-              {(errors.project || errors.message) && (
-                <p className="text-destructive text-xs mt-1">{errors.project || errors.message}</p>
+              {errors.message && (
+                <p className="text-destructive text-xs mt-1 animate-fade-in">{errors.message}</p>
               )}
             </div>
 
             {/* Submit button */}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full magnetic-button disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={formStatus === 'submitting'}
+              className="w-full magnetic-button disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden relative group"
             >
-              {isSubmitting ? (
+              {formStatus === 'submitting' ? (
                 <span className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   Enviando...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   Enviar mensagem
-                  <Send className="w-4 h-4" />
+                  <Send className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </span>
               )}
+              
+              {/* Button shine effect */}
+              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
             </button>
           </form>
         </div>
